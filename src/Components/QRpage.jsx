@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { Search, RefreshCw, Users, Database, Download, ExternalLink } from 'lucide-react';
+// import { Search, RefreshCw, Users, Database, Download, ExternalLink } from 'lucide-react';?
 
 const QRGeneratorPage = () => {
   const [employees, setEmployees] = useState([]);
