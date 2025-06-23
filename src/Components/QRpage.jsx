@@ -8,12 +8,11 @@ const QRGeneratorPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
   
-  // Google Sheets configuration
-  const [sheetConfig, setSheetConfig] = useState({
-    spreadsheetId: '',
-    apiKey: '',
-    range: 'Sheet1!A:E' // Adjust range as needed
-  });
+  // Google Apps Script configuration
+  const gasConfig = {
+  deploymentUrl: 'https://script.google.com/macros/s/AKfycby3gvhvedfvF1xfQwqRd6gM9X-9bo16buyYC62aJzkJHZ0irfgtVmevU-Ag62O7z3KF/exec'
+};
+
 
   // Sample data for demonstration
   const sampleEmployees = [
@@ -51,48 +50,55 @@ const QRGeneratorPage = () => {
     }
   ];
 
-  // Initialize with sample data
+  // Initialize by fetching data from Google Apps Script
   useEffect(() => {
-    setEmployees(sampleEmployees);
+    fetchFromGoogleAppsScript();
   }, []);
 
-  // Function to fetch data from Google Sheets
-  const fetchFromGoogleSheets = async () => {
-    if (!sheetConfig.spreadsheetId || !sheetConfig.apiKey) {
-      setError('Please provide both Spreadsheet ID and API Key');
-      return;
-    }
-
+  // Function to fetch data from Google Apps Script
+  const fetchFromGoogleAppsScript = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetConfig.spreadsheetId}/values/${sheetConfig.range}?key=${sheetConfig.apiKey}`;
-      
-      const response = await fetch(url);
+     const response = await fetch(gasConfig.deploymentUrl, {
+  method: 'GET'
+});
+
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
 
       if (data.error) {
-        throw new Error(data.error.message);
+        throw new Error(data.error);
       }
 
-      if (data.values && data.values.length > 1) {
-        // Skip header row and map data
-        const employeeData = data.values.slice(1).map((row, index) => ({
+      if (data.success && data.employees && Array.isArray(data.employees)) {
+        const employeeData = data.employees.map((emp, index) => ({
           id: index + 1,
-          fullName: row[0] || '',
-          designation: row[1] || '',
-          officialEmail: row[2] || '',
-          companyWebsite: row[3] || '',
-          linkedinProfile: row[4] || ''
+          fullName: emp.fullName || '',
+          designation: emp.designation || '',
+          officialEmail: emp.officialEmail || '',
+          companyWebsite: emp.companyWebsite || '',
+          linkedinProfile: emp.linkedinProfile || ''
         }));
 
         setEmployees(employeeData);
+        setError('');
+        console.log(`Successfully loaded ${employeeData.length} employees from Google Apps Script`);
+      } else if (data.error) {
+        throw new Error(data.error);
       } else {
-        setError('No data found in the specified range');
+        throw new Error('Invalid data format received from Google Apps Script');
       }
     } catch (err) {
+      console.error('Fetch error:', err);
       setError(`Error fetching data: ${err.message}`);
+      // Fall back to sample data if fetch fails
+      setEmployees(sampleEmployees);
     } finally {
       setLoading(false);
     }
@@ -132,10 +138,12 @@ END:VCARD`;
   // Download QR code as image
   const downloadQR = (employee) => {
     const canvas = document.getElementById(`qr-${employee.id}`);
-    const link = document.createElement('a');
-    link.download = `${employee.fullName.replace(/\s+/g, '_')}_QR.png`;
-    link.href = canvas.toDataURL();
-    link.click();
+    if (canvas) {
+      const link = document.createElement('a');
+      link.download = `${employee.fullName.replace(/\s+/g, '_')}_QR.png`;
+      link.href = canvas.toDataURL();
+      link.click();
+    }
   };
 
   // Download all QR codes
@@ -155,87 +163,27 @@ END:VCARD`;
           <h1 className="text-4xl font-bold text-white mb-4 bg-gradient-to-r from-purple-300 to-blue-300 bg-clip-text text-transparent">
             QR Code Generator
           </h1>
-          <p className="text-gray-300">Generate QR codes for employee business cards from Google Sheets</p>
-        </div>
-
-        {/* Google Sheets Configuration */}
-        <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-6 mb-8 border border-white/10">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center">
-            <Database className="w-5 h-5 mr-2" />
-            Google Sheets Configuration
-          </h2>
+          <p className="text-gray-300">Generate QR codes for employee business cards</p>
           
-          <div className="grid md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-white text-sm font-medium mb-2">
-                Spreadsheet ID
-              </label>
-              <input
-                type="text"
-                value={sheetConfig.spreadsheetId}
-                onChange={(e) => setSheetConfig({...sheetConfig, spreadsheetId: e.target.value})}
-                placeholder="Enter Google Sheets ID"
-                className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
+          {loading && (
+            <div className="mt-4 flex items-center justify-center space-x-2 text-purple-300">
+              <RefreshCw className="w-5 h-5 animate-spin" />
+              <span>Loading employee data...</span>
             </div>
-            
-            <div>
-              <label className="block text-white text-sm font-medium mb-2">
-                API Key
-              </label>
-              <input
-                type="text"
-                value={sheetConfig.apiKey}
-                onChange={(e) => setSheetConfig({...sheetConfig, apiKey: e.target.value})}
-                placeholder="Enter Google API Key"
-                className="w-full bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-4 items-center">
-            <button
-              onClick={fetchFromGoogleSheets}
-              disabled={loading}
-              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-6 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Loading...</span>
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4" />
-                  <span>Fetch Data</span>
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={downloadAllQRs}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-300 flex items-center space-x-2"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download All QRs</span>
-            </button>
-
-            <div className="text-sm text-gray-300 flex items-center">
-              <Users className="w-4 h-4 mr-1" />
-              {employees.length} employees loaded
-            </div>
-          </div>
-
+          )}
+          
           {error && (
-            <div className="mt-4 bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-300 text-sm">
+            <div className="mt-4 bg-red-500/20 border border-red-500/30 rounded-lg p-3 text-red-300 text-sm max-w-md mx-auto">
               {error}
             </div>
           )}
-
-          <div className="mt-4 text-xs text-gray-400">
-            <p><strong>Sheet Format:</strong> Column A: Full Name, B: Designation, C: Email, D: Website, E: LinkedIn</p>
-            <p><strong>Note:</strong> Currently showing sample data. Configure Google Sheets to load real data.</p>
-          </div>
+          
+          {!loading && !error && (
+            <div className="mt-4 text-sm text-gray-300 flex items-center justify-center">
+              <Users className="w-4 h-4 mr-1" />
+              {employees.length} employees loaded
+            </div>
+          )}
         </div>
 
         {/* Search Bar */}
@@ -286,16 +234,6 @@ END:VCARD`;
                   <Download className="w-4 h-4" />
                   <span>Download QR</span>
                 </button>
-
-                <a
-                  href={generateBusinessCardUrl(employee)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300 flex items-center justify-center space-x-2 text-sm"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>Preview Card</span>
-                </a>
               </div>
             </div>
           ))}
