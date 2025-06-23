@@ -1,16 +1,18 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import BusinessCardDisplay from "./Components/RegistrationForm";
-import QRGeneratorPage from "./Components/QRpage";
+// src/App.jsx
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import QRGeneratorPage from './Components/QRpage';
+import BusinessCardDisplay from './Components/RegistrationForm';
 
-function App() {
+const App = () => {
   return (
     <Router>
       <Routes>
         <Route path="/" element={<QRGeneratorPage />} />
-        <Route path="/register" element={<BusinessCardDisplay />} />
+        <Route path="/business-card" element={<BusinessCardDisplay />} />
       </Routes>
     </Router>
   );
-}
+};
 
 export default App;
